@@ -1,4 +1,3 @@
 stage_*
-*.log
 train_png
 *.pth
