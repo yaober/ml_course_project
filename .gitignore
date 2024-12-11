@@ -1,1 +1,4 @@
 stage_*
+*.log
+train*
+*.pth
