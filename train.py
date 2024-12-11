@@ -16,7 +16,6 @@ from tqdm import tqdm
 from torch.cuda.amp import autocast, GradScaler
 
 torch.backends.cudnn.benchmark = True
-# Set device for training
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print(f"Using {device} device")
 
@@ -29,7 +28,6 @@ def save_metrics_to_csv(metrics, file_name='training_metrics_more_epochs.csv'):
         df.to_csv(file_name, index=False)
 
 # %%
-# Data Preprocessing Function
 def preprocess(path):
     df = pd.read_csv(path)
     df[['ImageID', 'Subtype']] = df['ID'].str.rsplit('_', n=1, expand=True)
@@ -38,7 +36,7 @@ def preprocess(path):
         df[col] = df[col].astype('float32')
     return df
 
-# %%
+#Define a DicomDataset class
 class DicomDataset(Dataset):
     def __init__(self, img_dir, df, transform=None):
         self.img_dir = img_dir
@@ -74,7 +72,7 @@ class DicomDataset(Dataset):
         return img, label
 
 # %%
-# Custom Weighted Logarithmic Loss
+# Custom Weighted Logarithmic Loss By Kaggle 
 class WeightedLogLoss(nn.Module):
     def __init__(self, weights=None):
         super().__init__()
@@ -98,7 +96,7 @@ if torch.cuda.device_count() > 1:
 model.to('cuda' if torch.cuda.is_available() else 'cpu')
 
 # %%
-# Evaluation Function with Metrics Logging
+# Evaluation Function adn Logging
 def evaluate_model(model, data_loader, criterion, epoch, model_save_path='best_model.pth'):
     model.eval()
     y_true, y_pred = [], []
@@ -116,7 +114,7 @@ def evaluate_model(model, data_loader, criterion, epoch, model_save_path='best_m
     y_true = np.array(y_true)
     y_pred = np.array(y_pred)
 
-    # Calculate Metrics
+    # Metrics
     accuracy = accuracy_score(y_true.argmax(axis=1), y_pred.argmax(axis=1))
     sensitivity = recall_score(y_true.argmax(axis=1), y_pred.argmax(axis=1), average='weighted')
     specificity = precision_score(y_true.argmax(axis=1), y_pred.argmax(axis=1), average='weighted')
@@ -125,7 +123,6 @@ def evaluate_model(model, data_loader, criterion, epoch, model_save_path='best_m
     print(f"\nValidation Loss: {val_loss / len(data_loader):.4f}")
     print(f"Accuracy: {accuracy:.4f}, Sensitivity: {sensitivity:.4f}, Specificity: {specificity:.4f}, ROC AUC: {roc_auc:.4f}")
 
-    # Save Metrics to CSV
     metrics = {
         'epoch': epoch,
         'val_loss': val_loss / len(data_loader),
@@ -136,7 +133,7 @@ def evaluate_model(model, data_loader, criterion, epoch, model_save_path='best_m
     }
     save_metrics_to_csv(metrics)
 
-    # Save Best Model
+    # Save Model
     if epoch == 1 or metrics['roc_auc'] > evaluate_model.best_roc_auc:
         print(f"Saving the best model (ROC AUC: {metrics['roc_auc']:.4f})...")
         torch.save(model.state_dict(), model_save_path)
@@ -148,7 +145,7 @@ def evaluate_model(model, data_loader, criterion, epoch, model_save_path='best_m
 evaluate_model.best_roc_auc = 0.0
 
 # %%
-# Training Function with Metrics Logging and Model Saving
+# Training F
 def train_model(model, train_loader, val_loader, n_epochs=5, model_save_path='best_model.pth'):
     weights = [2.0, 1.0, 1.0, 1.0, 1.0, 1.0]
     criterion = WeightedLogLoss(weights=weights)
@@ -164,19 +161,18 @@ def train_model(model, train_loader, val_loader, n_epochs=5, model_save_path='be
             inputs, labels = inputs.to(device), labels.to(device)
             optimizer.zero_grad()
 
-            # Enable Mixed Precision
+            # Enable Mixed Precision__useless for saving time
             with autocast():
                 outputs = torch.sigmoid(model(inputs))
                 loss = criterion(outputs, labels)
 
-            # Backward pass and optimizer step
             scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()
 
             train_loss += loss.item()
 
-        # Evaluate and Save Metrics
+        # Metrics
         val_loss, accuracy, sensitivity, specificity, roc_auc = evaluate_model(
             model, val_loader, criterion, epoch, model_save_path
         )
@@ -185,9 +181,8 @@ def train_model(model, train_loader, val_loader, n_epochs=5, model_save_path='be
         print(f"Accuracy: {accuracy:.4f}, Sensitivity: {sensitivity:.4f}, Specificity: {specificity:.4f}, ROC AUC: {roc_auc:.4f}")
 
 # %%
-# Load Data and Train the Model
-TRAIN_PATH = './/stage_2_train'
-CSV_PATH = './/stage_2_train.csv'
+TRAIN_PATH = './stage_2_train'
+CSV_PATH = './stage_2_train.csv'
 
 df = preprocess(CSV_PATH)
 train_df, val_df = train_test_split(df, test_size=0.2, random_state=42)
